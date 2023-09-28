@@ -10,8 +10,11 @@
 global $COURSE, $CFG, $DB, $USER;
 
 require_once("inc.php");
+require_once(__DIR__ . '/../../config.php');
 
-$id = optional_param_array('id', PARAM_INT);
+
+$id = optional_param('id', 0, PARAM_INT);
+//$id = optional_param_array('id', PARAM_INT); // TODO: add other params.. for now I commented it out as it throws an error if you only use a single value
 // from moodle 2.2 on we have to use optional_param_array, optional_param won't accept arrays
 $out = array();
 $img_files = array();

@@ -18,7 +18,7 @@ function exameta_add_instance($meta)
     $test->intro = $meta->intro;
     $test->topicid = $meta->topicid;
 
-    if($meta->course == null && $meta->course > 1){
+    if($meta->course == null && $meta->course > 1){ // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
         print_error(get_string("courseError", "exameta"));
     } else if(! $DB->get_record("block", ["name"=>"exacomp"])){
         print_error(get_string("compNotInstalled", "exameta"));
