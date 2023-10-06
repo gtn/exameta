@@ -7,10 +7,13 @@
  * @package exameta
  **/
 
-global $COURSE, $CFG, $DB, $USER;
+global $COURSE, $CFG, $DB, $USER, $PAGE;
 
 require_once("inc.php");
 require_once(__DIR__ . '/../../config.php');
+require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/mod/exameta/lib.php";
+require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/blocks/exacomp/lib/lib.php";
+require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/blocks/exacomp/renderer.php";
 
 
 $id = optional_param('id', 0, PARAM_INT);
@@ -20,7 +23,7 @@ $out = array();
 $img_files = array();
 
 $responses = function_exists('optional_param_array') ? optional_param_array('responses', array(), PARAM_TEXT) : optional_param('responses', array(), PARAM_RAW);
-if (! $cm = $DB->get_record("course_modules", array("id"=>$COURSE->id))) {
+if (! $cm = $DB->get_record("course_modules", array("id"=>$id))) {
     print_error("Course Module ID was incorrect");
 }
 
@@ -29,26 +32,10 @@ if (! $course = $DB->get_record("course", array("id"=>$cm->course))) {
 }
 
 require_login($course->id);
-$scheme = block_exacomp_get_grading_scheme($course->id);
-$isEditingTeacher = block_exacomp_is_editingteacher($course->id, $USER->id);
-$isTeacher = block_exacomp_is_teacher();
-if ($isTeacher) {
-    //if ($slicestudentlist) {
-    //    $limitfrom = $slicestartposition + 1; // sql from
-    //    $limitnum = BLOCK_EXACOMP_STUDENTS_PER_COLUMN;
-    //} else {
-    $limitfrom = '';
-    $limitnum = '';
-    //}
-    $students = $allCourseStudents = block_exacomp_get_students_by_course($course->id, $limitfrom, $limitnum);
-} else {
-    $students = $allCourseStudents = array($USER->id => $USER);
-}
-
 
 /// Print the page header
 $navlinks = array();
-$navlinks[] = array('courseid' => $strexagames, 'link' => "index.php?id=$course->course", 'type' => 'activity');
+$navlinks[] = array('courseid' => $course->id, 'link' => "index.php?id=$course->course", 'type' => 'activity');
 
 //$navigation = build_navigation($navlinks);
 $partUrl = explode("/", $_SERVER['PHP_SELF'], 2);
@@ -68,79 +55,80 @@ $PAGE->requires->css('/blocks/exacomp/css/daterangepicker.min.css', true);
 echo $output->header();
 
 $context = context_module::instance($cm->id);
-$course_settings = block_exacomp_get_settings_by_course($courseid);
+$course_settings = block_exacomp_get_settings_by_course($course->id);
 
 /// Print the main part of the page
 $html_tables = [];
-$result = exameta_get_competence_ids($course->id);
+$results = exameta_get_competence_ids($course->id);
 
-$competence_tree = block_exacomp_get_competence_tree($course->id,
-    $result->subjid,
-    $result->topicid,
-    false,
-    $result->id,
-    true,
-    $course_settings->filteredtaxonomies,
-    true,
-    false,
-    false,
-    false,
-    false,
-    false,
-    null,
-    $editmode);
+foreach($results as $result){
+    $ret = block_exacomp_init_overview_data($course->id, $result->subjid, $result->topicid, $result->nivid, false,
+            false, false, false, @$course_settings->hideglobalsubjects);
 
-    if ($group == -1) {
-        // all students, do nothing
-    } else {
-        // get the students on this group
-        $students = array_slice($students, $group * BLOCK_EXACOMP_STUDENTS_PER_COLUMN, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
+    if (!$ret) {
+        print_error('not configured');
     }
+    $competence_tree = block_exacomp_get_competence_tree($course->id,
+        $result->subjid,
+        $result->topicid,
+        false,
+        $result->id,
+        true,
+        $course_settings->filteredtaxonomies,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        false);
 
-    // TODO: print column information for print
+        // TODO: print column information for print
 
-    // loop through all pages (eg. when all students should be printed)
-    for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
-        $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
-        $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->id);
+        // loop through all pages (eg. when all students should be printed)
+        for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
+            $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
+            $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->id);
+
+            $competence_overview = $output->competence_overview($competence_tree,
+                $course->id,
+                $students_to_print,
+                false,
+                $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+                $scheme,
+                $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
+                0,
+                false);
+
+            $html_tables[] = $competence_overview;
+            block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header, $html_tables);
+        }
+
+        echo '<div class="clearfix"></div>';
+        echo html_writer::start_tag("div", array("id" => "exabis_competences_block"));
+        echo html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
+        echo html_writer::start_tag("div", array("class" => "gridlayout"));
 
         $competence_overview = $output->competence_overview($competence_tree,
-            $course->id,
-            $students_to_print,
-            $showevaluation,
-            $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-            $scheme,
-            $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
-            0,
-            $isEditingTeacher);
+        $course->id,
+        $students,
+        true,
+        $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+        $scheme,
+        ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
+        0,
+        $isEditingTeacher);
+        
+        echo '<div class="clearfix"></div>';
 
-        $html_tables[] = $competence_overview;
-		block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header, $html_tables);
-	}
-
-    echo '<div class="clearfix"></div>';
-    echo html_writer::start_tag("div", array("id" => "exabis_competences_block"));
-    echo html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
-    echo html_writer::start_tag("div", array("class" => "gridlayout"));
-
-	$competence_overview = $output->competence_overview($competence_tree,
-    $course->id,
-    $students,
-    true,
-    $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-    $scheme,
-    ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
-    0,
-    $isEditingTeacher);
-    
-    echo '<div class="clearfix"></div>';
-
-$competence_overview = exameta_build_table();
-echo $competence_overview;
-echo '</div>';
-echo html_writer::end_tag("div");
-echo html_writer::end_tag("div");
-echo html_writer::end_tag("div");
+    echo $competence_overview;
+    echo '</div>';
+    echo html_writer::end_tag("div");
+    echo html_writer::end_tag("div");
+    echo html_writer::end_tag("div");
+}
 
 /// Finish the page
 echo $output->footer();
+?>
