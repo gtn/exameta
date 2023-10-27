@@ -11,9 +11,9 @@ global $COURSE, $CFG, $DB, $USER, $PAGE;
 
 require_once("inc.php");
 require_once(__DIR__ . '/../../config.php');
-require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/mod/exameta/lib.php";
-require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/blocks/exacomp/lib/lib.php";
-require_once $_SERVER['DOCUMENT_ROOT'] . "/moodle401/blocks/exacomp/renderer.php";
+require_once($CFG->dirroot . '/mod/exameta/lib.php'); // Because it exists (must)
+require_once($CFG->dirroot . '/blocks/exacomp/lib/lib.php');
+require_once($CFG->dirroot . '/blocks/exacomp/renderer.php');
 
 
 $id = optional_param('id', 0, PARAM_INT);
@@ -87,6 +87,7 @@ foreach($results as $result){
         // TODO: print column information for print
 
         // loop through all pages (eg. when all students should be printed)
+		if ($students){
         for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
             $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
             $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->id);
@@ -104,7 +105,7 @@ foreach($results as $result){
             $html_tables[] = $competence_overview;
             block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header, $html_tables);
         }
-
+		}
         echo '<div class="clearfix"></div>';
         echo html_writer::start_tag("div", array("id" => "exabis_competences_block"));
         echo html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
