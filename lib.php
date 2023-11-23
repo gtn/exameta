@@ -18,7 +18,7 @@ function exameta_add_instance($meta)
     $test->intro = $meta->intro;
     $test->topicid = $meta->topicid;
 
-    if($meta->course == null && $meta->course > 1){
+    if($meta->course == null && $meta->course > 1){ // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
         print_error(get_string("courseError", "exameta"));
     } else if(! $DB->get_record("block", ["name"=>"exacomp"])){
         print_error(get_string("compNotInstalled", "exameta"));
@@ -69,39 +69,6 @@ function exameta_delete_instance($id) {
 	return $result;
 }
 
-function exameta_load_schooltypes(){
-    global $DB;
-
-    $inf = array();
-    foreach($DB->get_records('block_exacompschooltypes') as $i){
-        $inf[$i->id] = $i->title;
-    }
-
-    return $inf;
-}
-
-function exameta_load_subjects(){
-    global $DB;
-
-    $inf = array();
-    foreach($DB->get_records('block_exacompsubjects') as $i){
-        $inf[$i->id] = $i->title;
-    }
-
-    return $inf;
-}
-
-function exameta_load_topics(){
-    global $DB;
-
-    $inf = array();
-    foreach($DB->get_records('block_exacomptopics') as $i){
-        $inf[$i->id] = $i->title;
-    }
-
-    return $inf;
-}
-
 function exameta_print_tabs($meta, $currenttab)
 {
 	global $CFG, $USER, $DB, $cm;
@@ -122,13 +89,13 @@ function exameta_print_tabs($meta, $currenttab)
 }
 
 function exameta_get_competence_ids($meta){
-    global $COURSE, $DB, $PAGE;
+    global $COURSE, $DB;
 
-    $result = $DB->get_record_sql('SELECT DISTINCT(topic.id) as topicid, topic.title, topic.subjid, niv.id as nivid FROM mdl_block_exacomptopicvisibility as vs
+    $result = $DB->get_records_sql('SELECT DISTINCT(topic.id) as topicid, topic.title, topic.subjid, niv.id as nivid FROM mdl_block_exacomptopicvisibility as vs
     inner join mdl_block_exacomptopics as topic on vs.topicid = topic.id
     inner join mdl_block_exacompsubjects as sub on topic.subjid = sub.id
     inner join mdl_block_exacompniveaus as niv on niv.source = sub.source
-    WHERE vs.courseid = ' . $COURSE->id . ' AND topic.id = ' . $meta->topicid . ' LIMIT 1');
+    WHERE vs.courseid = ' . $meta);
 
     return $result;
 }
@@ -137,21 +104,20 @@ function exameta_cm_info_view(cm_info $cm) {
     global $DB;
     $cm->set_custom_cmlist_item(true);
     $info = $DB->get_record('exameta', ["id"=>$cm->instance]);
-    $competence_overview = exameta_build_table($info);
+    $competence_overview = exameta_build_table($info->courseid);
     $info->intro = $competence_overview;
 
     $DB->update_record('exameta', $info);
     return $info;
  }
  function exameta_build_table($meta){
-    global $COURSE, $DB, $PAGE, $USER;
-
-    $scheme = block_exacomp_get_grading_scheme($COURSE->id);
-    $isEditingTeacher = block_exacomp_is_editingteacher($COURSE->id, $USER->id);
+    global $DB, $PAGE, $USER;
+    $scheme = block_exacomp_get_grading_scheme($meta);
+    $isEditingTeacher = block_exacomp_is_editingteacher($meta, $USER->id);
     $isTeacher = block_exacomp_is_teacher();
     $metaModule = $DB->get_record("modules", array('name'=>'exameta'));
     $moduleId = $metaModule->id;
-    $courseId = $COURSE->id;
+    $courseId = $meta;
     if (!$isTeacher) {
         $editmode = 0;
     } else {
@@ -170,7 +136,7 @@ function exameta_cm_info_view(cm_info $cm) {
         $limitfrom = '';
         $limitnum = '';
         //}
-        $students = $allCourseStudents = block_exacomp_get_students_by_course($COURSE->id, $limitfrom, $limitnum);
+        $students = $allCourseStudents = block_exacomp_get_students_by_course($meta, $limitfrom, $limitnum);
     } else {
         $students = $allCourseStudents = array($USER->id => $USER);
     }
@@ -178,75 +144,80 @@ function exameta_cm_info_view(cm_info $cm) {
     $output = $PAGE->get_renderer('block_exacomp');
 
     $context = context_module::instance($cm->id);
-    $course_settings = block_exacomp_get_settings_by_course($COURSE->id);
+    $course_settings = block_exacomp_get_settings_by_course($meta);
 
     /// Print the main part of the page
     $html_tables = [];
-    $result = exameta_get_competence_ids($meta);
+    $results = exameta_get_competence_ids($meta);
+    $competence_overview = "";
+    foreach($results as $result) {
+        $ret = block_exacomp_init_overview_data($meta, $result->subjid, $result->topicid, $result->nivid, $editmode,
+                $isTeacher, ($isTeacher ? 0 : $USER->id), ($isTeacher) ? false : true, @$course_settings->hideglobalsubjects);
 
-    $ret = block_exacomp_init_overview_data($COURSE->id, $result->subjid, $result->topicid, $result->nivid, $editmode, $isTeacher, ($isTeacher ? 0 : $USER->id), ($isTeacher) ? false : true, @$course_settings->hideglobalsubjects);
+        if (!$ret) {
+            print_error('not configured');
+        }
+        list($courseSubjects, $courseTopics, $niveaus, $selectedSubject, $selectedTopic, $selectedNiveau) = $ret;
+        $competence_tree = block_exacomp_get_competence_tree($meta,
+                $result->subjid,
+                $result->topicid,
+                false,
+                $result->nivid,
+                true,
+                $course_settings->filteredtaxonomies,
+                true,
+                false,
+                false,
+                false,
+                ($isTeacher) ? false : true,
+                false,
+                null,
+                $editmode);
+        // TODO: print column information for print
 
-    if (!$ret) {
-        print_error('not configured');
-    }
-    list($courseSubjects, $courseTopics, $niveaus, $selectedSubject, $selectedTopic, $selectedNiveau) = $ret;    
-    $competence_tree = block_exacomp_get_competence_tree($COURSE->id,
-    $result->subjid,
-    $result->topicid,
-    false,
-    null,
-    true,
-    $course_settings->filteredtaxonomies,
-    true,
-    false,
-    false,
-    false,
-    ($isTeacher) ? false : true,
-    false,
-    null,
-    $editmode);
-    // TODO: print column information for print
-
-    // loop through all pages (eg. when all students should be printed)
-    for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
+        // loop through all pages (eg. when all students should be printed)
+        for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
             $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
             $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->nivid);
 
-            $competence_overview = $output->competence_overview($competence_tree,
-            $COURSE->id,
-            $students_to_print,
-            $showevaluation,
-            $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-            $scheme,
-            $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
-            0,
-            $isEditingTeacher);
+            $competence_overview .= $output->competence_overview($competence_tree,
+                    $meta,
+                    $students_to_print,
+                    $showevaluation,
+                    $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+                    $scheme,
+                    $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
+                    0,
+                    $isEditingTeacher);
 
             $html_tables[] = $competence_overview;
-                    block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header, $html_tables);
-            }
+            block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header,
+                    $html_tables);
+        }
 
-    $competence_overview = '<div class="clearfix"></div>';
-    $competence_overview .= html_writer::start_tag("div", array("id" => "exabis_competences_block"));
-    $competence_overview .= html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
-    $competence_overview .= html_writer::start_tag("div", array("class" => "gridlayout"));
+        $competence_overview .= '<div class="clearfix"></div>';
+        $competence_overview .= html_writer::start_tag("div", array("id" => "exabis_competences_block"));
+        $competence_overview .= html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
+        $competence_overview .= html_writer::start_tag("div", array("class" => "gridlayout"));
 
-            $competence_overview = $output->competence_overview($competence_tree,
-    $COURSE->id,
-    $students,
-    true,
-    $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-    $scheme,
-    ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
-    0,
-    $isEditingTeacher);
+        $competence_overview .= $output->competence_overview($competence_tree,
+                $meta,
+                $students,
+                true,
+                $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+                $scheme,
+                ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
+                0,
+                $isEditingTeacher);
 
-    $competence_overview .= '<div class="clearfix"></div>';
+        $competence_overview .= '<div class="clearfix"></div>';
 
-    $competence_overview .= '</div>';
-    $competence_overview .= html_writer::end_tag("div");
-    $competence_overview .= html_writer::end_tag("div");
-    $competence_overview .= html_writer::end_tag("div");
+        $competence_overview .= '</div>';
+        $competence_overview .= html_writer::end_tag("div");
+        $competence_overview .= html_writer::end_tag("div");
+        $competence_overview .= html_writer::end_tag("div");
+        $competence_overview .= '<br/>';
+    }
     
     return $competence_overview;
  }

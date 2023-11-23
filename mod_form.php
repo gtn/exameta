@@ -50,16 +50,6 @@ class mod_exameta_mod_form extends moodleform_mod
         // We want to hide that when using the singleactivity course format because it is confusing.
         $mform->addElement('hidden', 'showdescription', 1);
         $mform->setType('showdescription', PARAM_INT);
-
-        $mform->addElement('select', 'stid', get_string('modulename', 'exameta'), exameta_load_schooltypes());
-        $mform->addRule('stid', null, 'required', null, 'client');
-
-        $mform->addElement('select', 'subjid', get_string('modulename', 'exameta'), exameta_load_subjects());
-        $mform->addRule('subjid', null, 'required', null, 'client');
-
-        $mform->addElement('select', 'topicid', get_string('modulename', 'exameta'), exameta_load_topics());
-        $mform->addRule('topicid', null, 'required', null, 'client');
-        
 //-------------------------------------------------------------------------------
         // add standard elements, common to all modules
         $this->standard_coursemodule_elements();
