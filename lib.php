@@ -15,7 +15,7 @@ function exameta_add_instance($meta) {
     $test->courseid = $meta->course;
     $test->name = $meta->name;
     $test->intro = $meta->intro;
-    $test->topicid = $meta->topicid;
+    $test->topicid = $meta->topicid ?? 0; // there is no topicid select in the mod_form?!?
 
     if ($meta->course == null && $meta->course > 1) { // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
         print_error(get_string("courseError", "exameta"));
@@ -37,7 +37,7 @@ function exameta_update_instance($meta) {
 
     $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE mo.course = " . $meta->course);
     $meta->id = $tmp->id;
-    $meta->intro = exameta_build_table($meta->topicid);
+    $meta->intro = exameta_build_table($meta->courseid);
 
     if (!$DB->update_record("exameta", $meta)) {
         return false;  // some error occurred
@@ -85,14 +85,18 @@ function exameta_print_tabs($meta, $currenttab) {
     print_tabs($tabs, $currenttab, $inactive, $activated);
 }
 
-function exameta_get_competence_ids($meta) {
-    global $COURSE, $DB;
+function exameta_get_competence_ids(int $courseid): array {
+    global $DB;
 
-    $result = $DB->get_records_sql('SELECT DISTINCT(topic.id) as topicid, topic.title, topic.subjid, niv.id as nivid FROM mdl_block_exacomptopicvisibility as vs
-    inner join mdl_block_exacomptopics as topic on vs.topicid = topic.id
-    inner join mdl_block_exacompsubjects as sub on topic.subjid = sub.id
-    inner join mdl_block_exacompniveaus as niv on niv.source = sub.source
-    WHERE vs.courseid = ' . $meta);
+    // hier wird get_recordsset() verwendet, da moodle sonst "duplicate ids" error wirft
+    $result = iterator_to_array($DB->get_recordset_sql('
+        SELECT topic.id as topicid, topic.title, topic.subjid, niv.id as niveauid
+        FROM mdl_block_exacomptopicvisibility as vs
+        inner join mdl_block_exacomptopics as topic on vs.topicid = topic.id
+        inner join mdl_block_exacompsubjects as sub on topic.subjid = sub.id
+        inner join mdl_block_exacompniveaus as niv on niv.source = sub.source
+        WHERE vs.courseid=?
+    ', [$courseid]));
 
     return $result;
 }
@@ -108,23 +112,22 @@ function exameta_cm_info_view(cm_info $cm) {
     return $info;
 }
 
-function exameta_build_table($meta) {
+function exameta_build_table(int $courseid) {
     global $DB, $PAGE, $USER;
-    $scheme = block_exacomp_get_grading_scheme($meta);
-    $isEditingTeacher = block_exacomp_is_editingteacher($meta, $USER->id);
+    $scheme = block_exacomp_get_grading_scheme($courseid);
+    $isEditingTeacher = block_exacomp_is_editingteacher($courseid, $USER->id);
     $isTeacher = block_exacomp_is_teacher();
     $metaModule = $DB->get_record("modules", array('name' => 'exameta'));
     $moduleId = $metaModule->id;
-    $courseId = $meta;
     if (!$isTeacher) {
         $editmode = 0;
     } else {
         $editmode = 1;
     }
 
-    if (!$cm = $DB->get_record("course_modules", ['course' => $courseId, 'module' => $moduleId])) {
-        print_error("Exameta is currently not installed in this course!");
-    }
+    // if (!$cm = $DB->get_record("course_modules", ['course' => $courseid, 'module' => $moduleId])) {
+    //     print_error("Exameta is currently not installed in this course!");
+    // }
 
     if ($isTeacher) {
         //if ($slicestudentlist) {
@@ -134,33 +137,33 @@ function exameta_build_table($meta) {
         $limitfrom = '';
         $limitnum = '';
         //}
-        $students = $allCourseStudents = block_exacomp_get_students_by_course($meta, $limitfrom, $limitnum);
+        $students = $allCourseStudents = block_exacomp_get_students_by_course($courseid, $limitfrom, $limitnum);
     } else {
         $students = $allCourseStudents = array($USER->id => $USER);
     }
 
     $output = $PAGE->get_renderer('block_exacomp');
 
-    $context = context_module::instance($cm->id);
-    $course_settings = block_exacomp_get_settings_by_course($meta);
+    // $context = context_module::instance($cm->id);
+    $course_settings = block_exacomp_get_settings_by_course($courseid);
 
     /// Print the main part of the page
     $html_tables = [];
-    $results = exameta_get_competence_ids($meta);
+    $results = exameta_get_competence_ids($courseid);
     $competence_overview = "";
     foreach ($results as $result) {
-        $ret = block_exacomp_init_overview_data($meta, $result->subjid, $result->topicid, $result->nivid, $editmode,
+        $ret = block_exacomp_init_overview_data($courseid, $result->subjid, $result->topicid, $result->niveauid, $editmode,
             $isTeacher, ($isTeacher ? 0 : $USER->id), ($isTeacher) ? false : true, @$course_settings->hideglobalsubjects);
 
         if (!$ret) {
             print_error('not configured');
         }
         list($courseSubjects, $courseTopics, $niveaus, $selectedSubject, $selectedTopic, $selectedNiveau) = $ret;
-        $competence_tree = block_exacomp_get_competence_tree($meta,
+        $competence_tree = block_exacomp_get_competence_tree($courseid,
             $result->subjid,
             $result->topicid,
             false,
-            $result->nivid,
+            $result->niveauid,
             true,
             $course_settings->filteredtaxonomies,
             true,
@@ -176,10 +179,10 @@ function exameta_build_table($meta) {
         // loop through all pages (eg. when all students should be printed)
         for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
             $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
-            $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->nivid);
+            $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->niveauid);
 
             $competence_overview .= $output->competence_overview($competence_tree,
-                $meta,
+                $courseid,
                 $students_to_print,
                 $showevaluation,
                 $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
@@ -189,8 +192,10 @@ function exameta_build_table($meta) {
                 $isEditingTeacher);
 
             $html_tables[] = $competence_overview;
-            block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header,
-                $html_tables);
+
+            // this does not work, because it prints a pdf?!?
+            // block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header,
+            //     $html_tables);
         }
 
         $competence_overview .= '<div class="clearfix"></div>';
@@ -199,7 +204,7 @@ function exameta_build_table($meta) {
         $competence_overview .= html_writer::start_tag("div", array("class" => "gridlayout"));
 
         $competence_overview .= $output->competence_overview($competence_tree,
-            $meta,
+            $courseid,
             $students,
             true,
             $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,

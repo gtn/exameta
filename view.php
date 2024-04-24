@@ -59,8 +59,13 @@ $course_settings = block_exacomp_get_settings_by_course($course->id);
 $html_tables = [];
 $results = exameta_get_competence_ids($course->id);
 
+$isEditingTeacher = block_exacomp_is_editingteacher($course->id, $USER->id);
+$isTeacher = block_exacomp_is_teacher($course->id, $USER->id);
+$scheme = block_exacomp_get_grading_scheme($course->id);
+$students = []; // TODO: auslesen?
+
 foreach ($results as $result) {
-    $ret = block_exacomp_init_overview_data($course->id, $result->subjid, $result->topicid, $result->nivid, false,
+    $ret = block_exacomp_init_overview_data($course->id, $result->subjid, $result->topicid, $result->niveauid, false,
         false, false, false, @$course_settings->hideglobalsubjects);
 
     if (!$ret) {
@@ -70,7 +75,7 @@ foreach ($results as $result) {
         $result->subjid,
         $result->topicid,
         false,
-        $result->id,
+        $result->niveauid,
         true,
         $course_settings->filteredtaxonomies,
         true,
@@ -115,7 +120,7 @@ foreach ($results as $result) {
         true,
         $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
         $scheme,
-        ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
+        ($result->niveauid != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
         0,
         $isEditingTeacher);
 

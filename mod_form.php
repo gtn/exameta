@@ -64,11 +64,3 @@ class mod_exameta_mod_form extends moodleform_mod {
         $this->_features->showdescription = plugin_supports('mod', $this->_modname, FEATURE_SHOW_DESCRIPTION, false);
     }
 }
-
-?>
-
-<script src="https://code.jquery.com/jquery-3.6.0.js"
-        integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
-<script>
-
-</script>
