@@ -9,9 +9,9 @@
  **/
 
 $id = required_param('id', PARAM_INT);   // course
-$PAGE->set_url('/mod/exameta/index.php', array('id'=>$id));
-if (! $course = $DB->get_record("course", array("id"=>$id))) {
-	print_error("Course ID is incorrect");
+$PAGE->set_url('/mod/exameta/index.php', array('id' => $id));
+if (!$course = $DB->get_record("course", array("id" => $id))) {
+    print_error("Course ID is incorrect");
 }
 
 require_login($course->id);
@@ -19,7 +19,7 @@ require_login($course->id);
 /// Get all required stringsexametas
 
 $strexametas = get_string("modulenameplural", "exameta");
-$strexameta  = get_string("modulename", "exameta");
+$strexameta = get_string("modulename", "exameta");
 
 
 /// Print the header
@@ -32,45 +32,45 @@ $PAGE->navbar->add($course->fullname, new moodle_url('', array('id' => $course->
 
 /// Get all the appropriate data
 
-if (! $exametas = get_all_instances_in_course("exametas", $course)) {
-	notice("There are no exametas", "../../course/view.php?id=$course->id");
-	die;
+if (!$exametas = get_all_instances_in_course("exametas", $course)) {
+    notice("There are no exametas", "../../course/view.php?id=$course->id");
+    die;
 }
 
 /// Print the list of instances (your module will probably extend this)
 
 $timenow = time();
-$strname  = get_string("name");
-$strweek  = get_string("week");
-$strtopic  = get_string("topic");
+$strname = get_string("name");
+$strweek = get_string("week");
+$strtopic = get_string("topic");
 
 $table = new html_table();
 
 if ($course->format == "weeks") {
-	$table->head  = array ($strweek, $strname);
-	$table->align = array ("center", "left");
+    $table->head = array($strweek, $strname);
+    $table->align = array("center", "left");
 } else if ($course->format == "topics") {
-	$table->head  = array ($strtopic, $strname);
-	$table->align = array ("center", "left", "left", "left");
+    $table->head = array($strtopic, $strname);
+    $table->align = array("center", "left", "left", "left");
 } else {
-	$table->head  = array ($strname);
-	$table->align = array ("left", "left", "left");
+    $table->head = array($strname);
+    $table->align = array("left", "left", "left");
 }
 
 foreach ($exametas as $exameta) {
-	if (!$exameta->visible) {
-		//Show dimmed if the mod is hidden
-		$link = "<a class=\"dimmed\" href=\"view.php?id=$exameta->coursemodule\">$exameta->name</a>";
-	} else {
-		//Show normal if the mod is visible
-		$link = "<a href=\"view.php?id=$exameta->coursemodule\">$exameta->name</a>";
-	}
+    if (!$exameta->visible) {
+        //Show dimmed if the mod is hidden
+        $link = "<a class=\"dimmed\" href=\"view.php?id=$exameta->coursemodule\">$exameta->name</a>";
+    } else {
+        //Show normal if the mod is visible
+        $link = "<a href=\"view.php?id=$exameta->coursemodule\">$exameta->name</a>";
+    }
 
-	if ($course->format == "weeks" or $course->format == "topics") {
-		$table->data[] = array ($exameta->section, $link);
-	} else {
-		$table->data[] = array ($link);
-	}
+    if ($course->format == "weeks" or $course->format == "topics") {
+        $table->data[] = array($exameta->section, $link);
+    } else {
+        $table->data[] = array($link);
+    }
 }
 
 echo "<br />";

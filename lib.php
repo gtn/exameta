@@ -1,16 +1,15 @@
 <?php
 /**
- * Given an object containing all the necessary data, 
- * (defined by the form in mod.html) this function 
- * will create a new instance and return the id number 
+ * Given an object containing all the necessary data,
+ * (defined by the form in mod.html) this function
+ * will create a new instance and return the id number
  * of the new instance.
  *
  * @param object $instance An object from the form in mod.html
  * @return int The id of the newly inserted exagames record
  **/
-function exameta_add_instance($meta)
-{   
-	global $DB;
+function exameta_add_instance($meta) {
+    global $DB;
 
     $test = new stdClass();
     $test->courseid = $meta->course;
@@ -18,27 +17,26 @@ function exameta_add_instance($meta)
     $test->intro = $meta->intro;
     $test->topicid = $meta->topicid;
 
-    if($meta->course == null && $meta->course > 1){ // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
+    if ($meta->course == null && $meta->course > 1) { // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
         print_error(get_string("courseError", "exameta"));
-    } else if(! $DB->get_record("block", ["name"=>"exacomp"])){
+    } else if (!$DB->get_record("block", ["name" => "exacomp"])) {
         print_error(get_string("compNotInstalled", "exameta"));
-    } else if (! $DB->get_records("block_exacompexampvisibility", ["courseid"=>$meta->course])){
+    } else if (!$DB->get_records("block_exacompexampvisibility", ["courseid" => $meta->course])) {
         print_error(get_string("notVisible", "exameta"));
-    } 
+    }
 
     if (!$meta->id = $DB->insert_record("exameta", $test)) {
         return false;
     }
 
-	return $meta->id;
+    return $meta->id;
 }
 
-function exameta_update_instance($meta)
-{
-	global $DB;
+function exameta_update_instance($meta) {
+    global $DB;
 
-    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE mo.course = ". $meta->course);
-	$meta->id = $tmp->id;
+    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE mo.course = " . $meta->course);
+    $meta->id = $tmp->id;
     $meta->intro = exameta_build_table($meta->topicid);
 
     if (!$DB->update_record("exameta", $meta)) {
@@ -49,12 +47,12 @@ function exameta_update_instance($meta)
 }
 
 function exameta_delete_instance($id) {
-	global $DB;
+    global $DB;
 
-    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE ex.id = ". $id);
-	$id = $tmp->id;
-	
-    if (! $meta = $DB->get_record("exameta", array("id"=>$id))) {
+    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE ex.id = " . $id);
+    $id = $tmp->id;
+
+    if (!$meta = $DB->get_record("exameta", array("id" => $id))) {
         return false;
     }
 
@@ -62,33 +60,32 @@ function exameta_delete_instance($id) {
 
     # Delete any dependent records here #
 
-    if (! $DB->delete_records("exameta", array("id"=>$id))) {
+    if (!$DB->delete_records("exameta", array("id" => $id))) {
         $result = false;
     }
 
-	return $result;
+    return $result;
 }
 
-function exameta_print_tabs($meta, $currenttab)
-{
-	global $CFG, $USER, $DB, $cm;
+function exameta_print_tabs($meta, $currenttab) {
+    global $CFG, $USER, $DB, $cm;
 
-	$tabs = array();
-	$row  = array();
-	$inactive = array();
-	$activated = array();
+    $tabs = array();
+    $row = array();
+    $inactive = array();
+    $activated = array();
 
-    $row[] = new tabobject('show', $CFG->wwwroot.'/mod/exameta/view.php?id='.$meta->course, 'Startseite');
+    $row[] = new tabobject('show', $CFG->wwwroot . '/mod/exameta/view.php?id=' . $meta->course, 'Startseite');
     $context = context_module::instance($cm->id);
     if (has_capability('moodle/course:manageactivities', $context)) {
-		$url = $CFG->wwwroot.'/course/mod.php?update='.$cm->id.'&return=1&sesskey='.sesskey();
-		$row[] = new tabobject('edit', $url, 'Edit');
-	}
+        $url = $CFG->wwwroot . '/course/mod.php?update=' . $cm->id . '&return=1&sesskey=' . sesskey();
+        $row[] = new tabobject('edit', $url, 'Edit');
+    }
     $tabs[] = $row;
-	print_tabs($tabs, $currenttab, $inactive, $activated);
+    print_tabs($tabs, $currenttab, $inactive, $activated);
 }
 
-function exameta_get_competence_ids($meta){
+function exameta_get_competence_ids($meta) {
     global $COURSE, $DB;
 
     $result = $DB->get_records_sql('SELECT DISTINCT(topic.id) as topicid, topic.title, topic.subjid, niv.id as nivid FROM mdl_block_exacomptopicvisibility as vs
@@ -103,19 +100,20 @@ function exameta_get_competence_ids($meta){
 function exameta_cm_info_view(cm_info $cm) {
     global $DB;
     $cm->set_custom_cmlist_item(true);
-    $info = $DB->get_record('exameta', ["id"=>$cm->instance]);
+    $info = $DB->get_record('exameta', ["id" => $cm->instance]);
     $competence_overview = exameta_build_table($info->courseid);
     $info->intro = $competence_overview;
 
     $DB->update_record('exameta', $info);
     return $info;
- }
- function exameta_build_table($meta){
+}
+
+function exameta_build_table($meta) {
     global $DB, $PAGE, $USER;
     $scheme = block_exacomp_get_grading_scheme($meta);
     $isEditingTeacher = block_exacomp_is_editingteacher($meta, $USER->id);
     $isTeacher = block_exacomp_is_teacher();
-    $metaModule = $DB->get_record("modules", array('name'=>'exameta'));
+    $metaModule = $DB->get_record("modules", array('name' => 'exameta'));
     $moduleId = $metaModule->id;
     $courseId = $meta;
     if (!$isTeacher) {
@@ -124,9 +122,9 @@ function exameta_cm_info_view(cm_info $cm) {
         $editmode = 1;
     }
 
-	if (! $cm = $DB->get_record("course_modules", ['course'=>$courseId, 'module'=>$moduleId])) {
-		print_error("Exameta is currently not installed in this course!");
-	}
+    if (!$cm = $DB->get_record("course_modules", ['course' => $courseId, 'module' => $moduleId])) {
+        print_error("Exameta is currently not installed in this course!");
+    }
 
     if ($isTeacher) {
         //if ($slicestudentlist) {
@@ -150,29 +148,29 @@ function exameta_cm_info_view(cm_info $cm) {
     $html_tables = [];
     $results = exameta_get_competence_ids($meta);
     $competence_overview = "";
-    foreach($results as $result) {
+    foreach ($results as $result) {
         $ret = block_exacomp_init_overview_data($meta, $result->subjid, $result->topicid, $result->nivid, $editmode,
-                $isTeacher, ($isTeacher ? 0 : $USER->id), ($isTeacher) ? false : true, @$course_settings->hideglobalsubjects);
+            $isTeacher, ($isTeacher ? 0 : $USER->id), ($isTeacher) ? false : true, @$course_settings->hideglobalsubjects);
 
         if (!$ret) {
             print_error('not configured');
         }
         list($courseSubjects, $courseTopics, $niveaus, $selectedSubject, $selectedTopic, $selectedNiveau) = $ret;
         $competence_tree = block_exacomp_get_competence_tree($meta,
-                $result->subjid,
-                $result->topicid,
-                false,
-                $result->nivid,
-                true,
-                $course_settings->filteredtaxonomies,
-                true,
-                false,
-                false,
-                false,
-                ($isTeacher) ? false : true,
-                false,
-                null,
-                $editmode);
+            $result->subjid,
+            $result->topicid,
+            false,
+            $result->nivid,
+            true,
+            $course_settings->filteredtaxonomies,
+            true,
+            false,
+            false,
+            false,
+            ($isTeacher) ? false : true,
+            false,
+            null,
+            $editmode);
         // TODO: print column information for print
 
         // loop through all pages (eg. when all students should be printed)
@@ -181,18 +179,18 @@ function exameta_cm_info_view(cm_info $cm) {
             $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->nivid);
 
             $competence_overview .= $output->competence_overview($competence_tree,
-                    $meta,
-                    $students_to_print,
-                    $showevaluation,
-                    $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-                    $scheme,
-                    $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
-                    0,
-                    $isEditingTeacher);
+                $meta,
+                $students_to_print,
+                $showevaluation,
+                $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+                $scheme,
+                $result->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS,
+                0,
+                $isEditingTeacher);
 
             $html_tables[] = $competence_overview;
             block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header,
-                    $html_tables);
+                $html_tables);
         }
 
         $competence_overview .= '<div class="clearfix"></div>';
@@ -201,14 +199,14 @@ function exameta_cm_info_view(cm_info $cm) {
         $competence_overview .= html_writer::start_tag("div", array("class" => "gridlayout"));
 
         $competence_overview .= $output->competence_overview($competence_tree,
-                $meta,
-                $students,
-                true,
-                $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
-                $scheme,
-                ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
-                0,
-                $isEditingTeacher);
+            $meta,
+            $students,
+            true,
+            $isTeacher ? BLOCK_EXACOMP_ROLE_TEACHER : BLOCK_EXACOMP_ROLE_STUDENT,
+            $scheme,
+            ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
+            0,
+            $isEditingTeacher);
 
         $competence_overview .= '<div class="clearfix"></div>';
 
@@ -218,6 +216,6 @@ function exameta_cm_info_view(cm_info $cm) {
         $competence_overview .= html_writer::end_tag("div");
         $competence_overview .= '<br/>';
     }
-    
+
     return $competence_overview;
- }
+}

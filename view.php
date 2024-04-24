@@ -10,8 +10,6 @@
 global $COURSE, $CFG, $DB, $USER, $PAGE;
 
 require_once("inc.php");
-require_once(__DIR__ . '/../../config.php');
-require_once($CFG->dirroot . '/mod/exameta/lib.php'); // Because it exists (must)
 require_once($CFG->dirroot . '/blocks/exacomp/lib/lib.php');
 require_once($CFG->dirroot . '/blocks/exacomp/renderer.php');
 
@@ -23,11 +21,11 @@ $out = array();
 $img_files = array();
 
 $responses = function_exists('optional_param_array') ? optional_param_array('responses', array(), PARAM_TEXT) : optional_param('responses', array(), PARAM_RAW);
-if (! $cm = $DB->get_record("course_modules", array("id"=>$id))) {
+if (!$cm = $DB->get_record("course_modules", array("id" => $id))) {
     print_error("Course Module ID was incorrect");
 }
 
-if (! $course = $DB->get_record("course", array("id"=>$cm->course))) {
+if (!$course = $DB->get_record("course", array("id" => $cm->course))) {
     print_error("Course is misconfigured");
 }
 
@@ -40,7 +38,7 @@ $navlinks[] = array('courseid' => $course->id, 'link' => "index.php?id=$course->
 //$navigation = build_navigation($navlinks);
 $partUrl = explode("/", $_SERVER['PHP_SELF'], 2);
 $pos = strpos($partUrl[1], "/");
-$url = new moodle_url(substr($partUrl[1], $pos), array('id'=>$id));
+$url = new moodle_url(substr($partUrl[1], $pos), array('id' => $id));
 $PAGE->set_url($url);
 $PAGE->set_heading(get_string("modulename", "exameta"));
 
@@ -61,9 +59,9 @@ $course_settings = block_exacomp_get_settings_by_course($course->id);
 $html_tables = [];
 $results = exameta_get_competence_ids($course->id);
 
-foreach($results as $result){
+foreach ($results as $result) {
     $ret = block_exacomp_init_overview_data($course->id, $result->subjid, $result->topicid, $result->nivid, false,
-            false, false, false, @$course_settings->hideglobalsubjects);
+        false, false, false, @$course_settings->hideglobalsubjects);
 
     if (!$ret) {
         print_error('not configured');
@@ -84,10 +82,10 @@ foreach($results as $result){
         null,
         false);
 
-        // TODO: print column information for print
+    // TODO: print column information for print
 
-        // loop through all pages (eg. when all students should be printed)
-		if ($students){
+    // loop through all pages (eg. when all students should be printed)
+    if ($students) {
         for ($group_i = 0; $group_i < count($students); $group_i += BLOCK_EXACOMP_STUDENTS_PER_COLUMN) {
             $students_to_print = array_slice($students, $group_i, BLOCK_EXACOMP_STUDENTS_PER_COLUMN, true);
             $html_header = $output->overview_metadata($result->title, $result->topicid, null, $result->id);
@@ -105,13 +103,13 @@ foreach($results as $result){
             $html_tables[] = $competence_overview;
             block_exacomp\printer::competence_overview($result->subjid, $result->topicid, $result->id, null, $html_header, $html_tables);
         }
-		}
-        echo '<div class="clearfix"></div>';
-        echo html_writer::start_tag("div", array("id" => "exabis_competences_block"));
-        echo html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
-        echo html_writer::start_tag("div", array("class" => "gridlayout"));
+    }
+    echo '<div class="clearfix"></div>';
+    echo html_writer::start_tag("div", array("id" => "exabis_competences_block"));
+    echo html_writer::start_tag("div", array("class" => "exabis_competencies_lis"));
+    echo html_writer::start_tag("div", array("class" => "gridlayout"));
 
-        $competence_overview = $output->competence_overview($competence_tree,
+    $competence_overview = $output->competence_overview($competence_tree,
         $course->id,
         $students,
         true,
@@ -120,8 +118,8 @@ foreach($results as $result){
         ($selectedNiveau->id != BLOCK_EXACOMP_SHOW_ALL_NIVEAUS),
         0,
         $isEditingTeacher);
-        
-        echo '<div class="clearfix"></div>';
+
+    echo '<div class="clearfix"></div>';
 
     echo $competence_overview;
     echo '</div>';

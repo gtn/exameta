@@ -26,19 +26,17 @@
 
 require_once('moodleform_mod.php');
 
-class mod_exameta_mod_form extends moodleform_mod
-{       
-/**
-* List of modform features
-*/
+class mod_exameta_mod_form extends moodleform_mod {
+    /**
+     * List of modform features
+     */
     protected $_features;
 
-    function definition()
-    {
+    function definition() {
 
         global $COURSE, $CFG, $DB, $OUTPUT, $PAGE, $USER;
         $mform =& $this->_form;
-//-------------------------------------------------------------------------------
+        //-------------------------------------------------------------------------------
         /// Adding the "general" fieldset, where all the common settings are showed
         $mform->addElement('header', 'general', get_string('general', 'form'));
         /// Adding the standard "name" field
@@ -50,10 +48,10 @@ class mod_exameta_mod_form extends moodleform_mod
         // We want to hide that when using the singleactivity course format because it is confusing.
         $mform->addElement('hidden', 'showdescription', 1);
         $mform->setType('showdescription', PARAM_INT);
-//-------------------------------------------------------------------------------
+        //-------------------------------------------------------------------------------
         // add standard elements, common to all modules
         $this->standard_coursemodule_elements();
-//-------------------------------------------------------------------------------
+        //-------------------------------------------------------------------------------
         // add standard buttons, common to all modules
         $this->add_action_buttons();
 
@@ -64,13 +62,13 @@ class mod_exameta_mod_form extends moodleform_mod
 
         $this->_features = new stdClass();
         $this->_features->showdescription = plugin_supports('mod', $this->_modname, FEATURE_SHOW_DESCRIPTION, false);
-     }
+    }
 }
 
 ?>
 
 <script src="https://code.jquery.com/jquery-3.6.0.js"
-                integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
+        integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
 <script>
 
 </script>

@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->version = 2023083000;
 $plugin->requires = 2010112400;
-$plugin->cron      = 0;
+$plugin->cron = 0;
 $plugin->component = 'mod_exameta';
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release  = 'v0.1';
+$plugin->maturity = MATURITY_STABLE;
+$plugin->release = 'v0.1';
