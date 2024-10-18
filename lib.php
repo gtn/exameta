@@ -17,13 +17,13 @@ function exameta_add_instance($meta) {
     $test->intro = $meta->intro;
     $test->topicid = $meta->topicid ?? 0; // there is no topicid select in the mod_form?!?
 
-    if ($meta->course == null && $meta->course > 1) { // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
-        print_error(get_string("courseError", "exameta"));
-    } else if (!$DB->get_record("block", ["name" => "exacomp"])) {
-        print_error(get_string("compNotInstalled", "exameta"));
-    } else if (!$DB->get_records("block_exacompexampvisibility", ["courseid" => $meta->course])) {
-        print_error(get_string("notVisible", "exameta"));
-    }
+    // if ($meta->course == null && $meta->course > 1) { // TODO: what should this check? it will never be true since if the course is null it cannot be larger than 1
+    //     print_error(get_string("courseError", "exameta"));
+    // } else if (!$DB->get_record("block", ["name" => "exacomp"])) {
+    //     print_error(get_string("compNotInstalled", "exameta"));
+    // } else if (!$DB->get_records("block_exacompexampvisibility", ["courseid" => $meta->course])) {
+    //     print_error(get_string("notVisible", "exameta"));
+    // }
 
     if (!$meta->id = $DB->insert_record("exameta", $test)) {
         return false;
@@ -37,7 +37,7 @@ function exameta_update_instance($meta) {
 
     $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE mo.course = " . $meta->course);
     $meta->id = $tmp->id;
-    $meta->intro = exameta_build_table($meta->courseid);
+    // $meta->intro = exameta_build_table($meta->courseid);
 
     if (!$DB->update_record("exameta", $meta)) {
         return false;  // some error occurred
@@ -101,19 +101,30 @@ function exameta_get_competence_ids(int $courseid): array {
     return $result;
 }
 
+function exameta_cm_info_dynamic(cm_info $cm) {
+    // keine Überschrift usw. anzeigen
+    $cm->set_no_view_link();
+}
+
 function exameta_cm_info_view(cm_info $cm) {
     global $DB;
-    $cm->set_custom_cmlist_item(true);
-    $info = $DB->get_record('exameta', ["id" => $cm->instance]);
-    $competence_overview = exameta_build_table($info->courseid);
-    $info->intro = $competence_overview;
 
-    $DB->update_record('exameta', $info);
-    return $info;
+    // $competence_overview = exameta_build_table($cm->get_course()->id);
+
+    if (class_exists(\block_edupublisher\api::class)) {
+        $output = \block_edupublisher\api::get_course_summary($cm->get_course()->id);
+    } else {
+        $output = 'keine Metadaten';
+    }
+
+    $cm->set_content($output);
 }
 
 function exameta_build_table(int $courseid) {
-    global $DB, $PAGE, $USER;
+    global $CFG, $DB, $PAGE, $USER;
+
+    require_once($CFG->dirroot . '/blocks/exacomp/lib/lib.php');
+
     $scheme = block_exacomp_get_grading_scheme($courseid);
     $isEditingTeacher = block_exacomp_is_editingteacher($courseid, $USER->id);
     $isTeacher = block_exacomp_is_teacher();
