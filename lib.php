@@ -56,7 +56,7 @@ function exameta_delete_instance($id) {
     $result = true;
 
     $cm = get_coursemodule_from_instance('exameta', $id);
-    \core_completion\api::update_completion_date_event($cm->id, 'exameta', $exameta->id, null);
+    // \core_completion\api::update_completion_date_event($cm->id, 'exameta', $exameta->id, null);
 
     if (! $DB->delete_records("exameta", array("id"=>$exameta->id))) {
         $result = false;
