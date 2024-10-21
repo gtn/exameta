@@ -13,6 +13,7 @@ require_once("inc.php");
 require_once($CFG->dirroot . '/blocks/exacomp/lib/lib.php');
 require_once($CFG->dirroot . '/blocks/exacomp/renderer.php');
 
+throw new \moodle_exception('not supported anymore');
 
 $id = optional_param('id', 0, PARAM_INT);
 //$id = optional_param_array('id', PARAM_INT); // TODO: add other params.. for now I commented it out as it throws an error if you only use a single value

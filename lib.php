@@ -32,41 +32,65 @@ function exameta_add_instance($meta) {
     return $meta->id;
 }
 
-function exameta_update_instance($meta) {
+function exameta_update_instance($exameta) {
+    // code copied from mod_label
     global $DB;
 
-    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE mo.course = " . $meta->course);
-    $meta->id = $tmp->id;
-    // $meta->intro = exameta_build_table($meta->courseid);
+    $exameta->timemodified = time();
+    $exameta->id = $exameta->instance;
 
-    if (!$DB->update_record("exameta", $meta)) {
-        return false;  // some error occurred
-    }
+    $completiontimeexpected = !empty($exameta->completionexpected) ? $exameta->completionexpected : null;
+    // \core_completion\api::update_completion_date_event($exameta->coursemodule, 'exameta', $exameta->id, $completiontimeexpected);
 
-    return true;
+    return $DB->update_record("exameta", $exameta);
 }
 
 function exameta_delete_instance($id) {
+    // code copied from mod_label
     global $DB;
 
-    $tmp = $DB->get_record_sql("SELECT ex.id FROM mdl_exameta as ex inner join mdl_course_modules as mo on ex.courseid = mo.course WHERE ex.id = " . $id);
-    $id = $tmp->id;
-
-    if (!$meta = $DB->get_record("exameta", array("id" => $id))) {
+    if (! $exameta = $DB->get_record("exameta", array("id"=>$id))) {
         return false;
     }
 
     $result = true;
 
-    # Delete any dependent records here #
+    $cm = get_coursemodule_from_instance('exameta', $id);
+    \core_completion\api::update_completion_date_event($cm->id, 'exameta', $exameta->id, null);
 
-    if (!$DB->delete_records("exameta", array("id" => $id))) {
+    if (! $DB->delete_records("exameta", array("id"=>$exameta->id))) {
         $result = false;
     }
 
     return $result;
 }
 
+function exameta_cm_info_dynamic(cm_info $cm) {
+    // keine Überschrift usw. anzeigen
+    $cm->set_no_view_link();
+}
+
+function exameta_cm_info_view(cm_info $cm) {
+    if (method_exists(\block_edupublisher\api::class, 'get_course_summary')) {
+        $output = \block_edupublisher\api::get_course_summary($cm->get_course()->id);
+        // } else {
+        // Loading the competencies from exacomp is not working anymore!
+        //     $competence_overview = exameta_build_table($cm->get_course()->id);
+    } else {
+        $output = 'keine Metadaten';
+    }
+
+    // hack: bei aktivitäten ohne header wird ein padding-right gesetzt, dieses entfernen
+    $output .= '<style>
+        .activity.activity-wrapper.exameta .contentwithoutlink {
+            padding-right: 0;
+        }
+    </style>';
+
+    $cm->set_content($output);
+}
+
+/*
 function exameta_print_tabs($meta, $currenttab) {
     global $CFG, $USER, $DB, $cm;
 
@@ -91,33 +115,14 @@ function exameta_get_competence_ids(int $courseid): array {
     // hier wird get_recordsset() verwendet, da moodle sonst "duplicate ids" error wirft
     $result = iterator_to_array($DB->get_recordset_sql('
         SELECT topic.id as topicid, topic.title, topic.subjid, niv.id as niveauid
-        FROM mdl_block_exacomptopicvisibility as vs
-        inner join mdl_block_exacomptopics as topic on vs.topicid = topic.id
-        inner join mdl_block_exacompsubjects as sub on topic.subjid = sub.id
-        inner join mdl_block_exacompniveaus as niv on niv.source = sub.source
+        FROM {block_exacomptopicvisibility} as vs
+        inner join {block_exacomptopics} as topic on vs.topicid = topic.id
+        inner join {block_exacompsubjects} as sub on topic.subjid = sub.id
+        inner join {block_exacompniveaus} as niv on niv.source = sub.source
         WHERE vs.courseid=?
     ', [$courseid]));
 
     return $result;
-}
-
-function exameta_cm_info_dynamic(cm_info $cm) {
-    // keine Überschrift usw. anzeigen
-    $cm->set_no_view_link();
-}
-
-function exameta_cm_info_view(cm_info $cm) {
-    global $DB;
-
-    // $competence_overview = exameta_build_table($cm->get_course()->id);
-
-    if (class_exists(\block_edupublisher\api::class)) {
-        $output = \block_edupublisher\api::get_course_summary($cm->get_course()->id);
-    } else {
-        $output = 'keine Metadaten';
-    }
-
-    $cm->set_content($output);
 }
 
 function exameta_build_table(int $courseid) {
@@ -235,3 +240,4 @@ function exameta_build_table(int $courseid) {
 
     return $competence_overview;
 }
+*/
